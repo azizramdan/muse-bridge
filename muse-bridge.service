@@ -5,6 +5,10 @@ Wants=network-online.target
 
 [Service]
 Type=simple
+# TEMPLATE — the values below are Ubuntu-cloud defaults. Prefer installing
+# via `sudo ./scripts/install-service.sh`, which rewrites User, the
+# /home/ubuntu/muse-bridge paths, and ExecStart's bun path for this machine.
+# A wrong User= makes systemd fail with status=217/USER.
 User=ubuntu
 WorkingDirectory=/home/ubuntu/muse-bridge
 Environment=NODE_ENV=production
@@ -23,6 +27,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=read-only
+# must exist before start: sudo mkdir -p <this-dir>
 ReadWritePaths=/home/ubuntu/muse-bridge/data
 
 [Install]

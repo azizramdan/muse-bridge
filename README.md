@@ -89,18 +89,19 @@ consumer in step 5 and re-run the curl — it now returns
 
 ```bash
 # copy this repo to the VPS, then:
-cd /home/ubuntu
 git clone git@github.com:azizramdan/muse-bridge.git
 cd muse-bridge && bun install
 
-sudo mkdir -p /home/ubuntu/muse-bridge/data
-sudo cp muse-bridge.service /etc/systemd/system/muse-bridge.service
-sudo systemctl daemon-reload
-sudo systemctl enable --now muse-bridge
+# generates the systemd unit for THIS machine (user, paths, bun path)
+# and starts it — nothing is hardcoded
+sudo ./scripts/install-service.sh
 ```
 
-> The unit's `ExecStart` uses `/usr/local/bin/bun`. If your bun lives
-> elsewhere, run `which bun` and edit the unit accordingly.
+> Manual alternative: `sudo cp muse-bridge.service /etc/systemd/system/`,
+> then edit `User=`, the `/home/ubuntu/muse-bridge` paths, and the bun path
+> in `ExecStart` for your host (a wrong `User=` fails with systemd status
+> `217/USER`), `daemon-reload`, `enable --now`. The installer does all of
+> this for you.
 
 Verify:
 
