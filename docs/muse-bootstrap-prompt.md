@@ -64,7 +64,14 @@ are running — this single command is your lifeline:
      ssh -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=no \
        [-o "ProxyCommand=<PROXY_CMD> %h %p"] -i <PRIVATE_KEY> <WORKER_USER>@<VPS_IP>
 
-   Everything below applies unchanged either way.
+   In hardened mode SKIP Phase 1 steps 2-3: the pin overrides any
+   remote command, so `ssh … "echo ok"` would start the consumer and
+   hang instead of printing "ok". The Phase 2 connection IS your
+   test: it stays open and silent when the tunnel is up, or prints an
+   error and exits (hub unreachable / key rejected) when it isn't.
+   Your VPS admin confirms attachment via /health on their side.
+
+   Everything else applies unchanged either way.
 
 The session speaks line-delimited JSON. Lines appearing on YOUR side of the
 session (stdout of the command) are requests:
