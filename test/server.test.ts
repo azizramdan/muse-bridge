@@ -295,3 +295,40 @@ describe("openai surface", () => {
     }
   });
 });
+
+describe("startup failure", () => {
+  test("does not leak the public server when the hub port is taken", () => {
+    // occupy a port so the hub's Bun.serve fails
+    const blocker = Bun.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      fetch: () => new Response("blocker"),
+    });
+    // reserve a known public port, then release it for startBridge
+    const reserver = Bun.serve({
+      hostname: "127.0.0.1",
+      port: 0,
+      fetch: () => new Response("reserver"),
+    });
+    const publicPort = reserver.port;
+    reserver.stop(true);
+
+    try {
+      expect(() =>
+        startBridge(makeConfig({ port: publicPort, hubPort: blocker.port })),
+      ).toThrow();
+
+      // A failed start must not leave a half-open public server behind:
+      // this bind succeeds only if startBridge released the port. (The bug
+      // shipped as a bridge that served /health while the hub never existed.)
+      const probe = Bun.serve({
+        hostname: "127.0.0.1",
+        port: publicPort,
+        fetch: () => new Response("probe"),
+      });
+      probe.stop(true);
+    } finally {
+      blocker.stop(true);
+    }
+  });
+});

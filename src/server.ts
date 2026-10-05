@@ -172,13 +172,16 @@ export function startBridge(cfg: BridgeConfig, opts: StartOptions = {}): Running
   const hub = new Hub(db, cfg);
   hub.startReaper(opts.reaperMs ?? 1_000);
 
-  const publicSrv = Bun.serve({
-    hostname: cfg.host,
-    port: cfg.port,
-    fetch: (req) => handlePublic(hub, cfg, req),
-  });
+  let publicSrv: ReturnType<typeof Bun.serve> | undefined;
+  let hubSrv: ReturnType<typeof Bun.serve>;
+  try {
+    publicSrv = Bun.serve({
+      hostname: cfg.host,
+      port: cfg.port,
+      fetch: (req) => handlePublic(hub, cfg, req),
+    });
 
-  const hubSrv = Bun.serve({
+    hubSrv = Bun.serve({
     hostname: cfg.hubHost,
     port: cfg.hubPort,
     fetch: (req, srv) =>
@@ -215,7 +218,15 @@ export function startBridge(cfg: BridgeConfig, opts: StartOptions = {}): Running
         if (ws.data.cid) hub.detach(ws.data.cid);
       },
     },
-  });
+    });
+  } catch (err) {
+    // Never leave a half-started bridge behind: a leaked public server keeps
+    // the process "active" (serving /health) while the hub doesn't exist —
+    // systemd would never see the failure.
+    publicSrv?.stop(true);
+    hub.close();
+    throw err;
+  }
 
   return {
     hub,

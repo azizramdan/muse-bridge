@@ -50,7 +50,7 @@ bun install
 bun test
 ```
 
-Expected: `30 pass, 0 fail`.
+Expected: `31 pass, 0 fail`.
 
 ### 2. Local smoke test (optional, two terminals)
 
@@ -124,18 +124,29 @@ curl -s http://127.0.0.1:8765/health      # {"ok":true,"consumers":0,"depth":0}
 curl -s http://127.0.0.1:8765/v1/models   # list contains {"id":"muse",...}
 ```
 
-> **Port 8765 already taken** (another gateway, etc. — see `EADDRINUSE` /
-> `Is port 8765 in use?` in `journalctl -u muse-bridge`, or `ss -ltnp | grep 8765`)?
-> Reinstall on a custom port and use it everywhere (9Router Base URL, curls):
+> **A port is already taken** (another gateway, etc. — see `EADDRINUSE` /
+> `Is port NNNN in use?` in `journalctl -u muse-bridge`, or `ss -ltnp`)?
+> There are **two** ports — check both: the public API (`PORT`, default 8765)
+> and the internal hub (`HUB_PORT`, default 8767). A squatted hub port used to
+> fail *silently*: the public server came up, `/health` answered, and workers
+> could never attach. `startBridge` now cleans up on any bind failure (the
+> service goes `failed`, not half-alive), so check `journalctl` for the port
+> that actually failed.
+>
+> Reinstall on free ports and use the public one everywhere (9Router Base
+> URL, curls):
 >
 > ```bash
-> sudo PORT=18765 ./scripts/install-service.sh
-> curl -s http://127.0.0.1:18765/health
+> sudo ss -ltnp | grep -E ':(8765|8767)'   # see who owns the defaults
+> sudo PORT=28765 HUB_PORT=28767 ./scripts/install-service.sh
+> curl -s http://127.0.0.1:28765/health
 > ```
 >
-> Keep `HUB_PORT` at the default 8767 (only `ss -ltnp | grep 8767` should be
-> empty): worker `consume` processes run without env and use the built-in
-> default, so changing it would require baking it into every forced command.
+> ⚠️ Workers run `consume` with **no env**, so they only know the built-in
+> default hub (`ws://127.0.0.1:8767`). If you move `HUB_PORT`, every worker's
+> command must carry the override — plain `consume --id …`, and the forced
+> command in §8, must become `consume --id … --hub ws://127.0.0.1:28767`.
+> Only move `HUB_PORT` when 8767 is actually taken.
 
 Then, in the 9Router dashboard:
 
@@ -180,7 +191,9 @@ prompt — it is written to be pasted verbatim):
 >
 > 1. Open the session and keep it open:
 >    `ssh -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=no [-o "ProxyCommand=<PROXY_CMD> %h %p"] -i <PRIVATE_KEY> <USER>@<VPS_IP> "bun /opt/muse-bridge/src/cli.ts consume --id muse-<N>"`
->    (replace `<N>` with this server's unique number: muse-1, muse-2, …)
+>    (replace `<N>` with this server's unique number: muse-1, muse-2, …;
+>    if the VPS admin moved `HUB_PORT`, they will also give you a
+>    `--hub ws://127.0.0.1:<HUB_PORT>` flag to append)
 >
 > 2. The session speaks line-delimited JSON on stdin/stdout. Your stdout
 >    receives messages like:
@@ -277,6 +290,10 @@ EOF
 sudo -u muse1 chmod 600 /home/muse1/.ssh/authorized_keys
 ```
 
+> If you moved `HUB_PORT` off its default (§4), append
+> `--hub ws://127.0.0.1:<HUB_PORT>` to the pinned `consume` command — the
+> forced command is where the worker learns the hub address.
+
 - One account = one id (`muse1` → `muse-1`), so duplicate-id ping-ponging
   is structurally impossible.
 - With `command=`, the remote command is ignored: the Muse instruction
@@ -341,7 +358,7 @@ consume → serve : {"type":"heartbeat"}               (automatic)
 ## Development
 
 ```bash
-bun test              # 30 tests: hub, HTTP surface, consume process, load/exactly-once
+bun test              # 31 tests: hub, HTTP surface, consume process, load/exactly-once
 bun src/cli.ts serve  # run the bridge locally
 ```
 

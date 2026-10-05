@@ -12,6 +12,7 @@ or from README §5a):
 | `<USER>` | `ubuntu` | VPS login user |
 | `<VPS_IP>` | `100.x.y.z` | VPS address (Tailscale IP works) |
 | `<PROXY_CMD>` | `proxycommand …` | **Delete the whole `-o "ProxyCommand=…"` option if you don't use an egress proxy** |
+| `--hub` flag | `--hub ws://127.0.0.1:28767` | Only if the VPS admin moved `HUB_PORT` off the default 8767 — append it to the Phase 2 consume command (hardened mode: it's already inside the pin, do nothing) |
 
 > ⚠️ **One worker = one id.** If a second session attaches with the same id,
 > the bridge treats it as a reconnect of the first and detaches it (its

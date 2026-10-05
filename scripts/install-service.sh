@@ -45,10 +45,11 @@ if [[ ! -f "$TEMPLATE" ]]; then
 fi
 
 # Ports: override at install time if the defaults are already taken
-#   sudo PORT=18765 ./scripts/install-service.sh
-# Keep HUB_PORT at its default unless you also bake it into every worker's
-# forced command — worker users run `consume` with no env, so they always
-# get the built-in default.
+#   sudo PORT=28765 HUB_PORT=28767 ./scripts/install-service.sh
+# Keep HUB_PORT at its default 8767 unless it's actually squatted — worker
+# users run `consume` with no env, so a non-default hub must be baked into
+# every worker command as `--hub ws://127.0.0.1:<HUB_PORT>` (forced
+# command in README §8, or the plain consume command in §5b).
 PUBLIC_PORT="${PORT:-8765}"
 HUB_PORT="${HUB_PORT:-8767}"
 for v in "$PUBLIC_PORT" "$HUB_PORT"; do
