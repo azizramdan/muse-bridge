@@ -1,0 +1,17 @@
+{
+  "name": "muse-bridge",
+  "module": "src/cli.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "bun src/cli.ts serve",
+    "consume": "bun src/cli.ts consume",
+    "test": "bun test"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^7"
+  }
+}
