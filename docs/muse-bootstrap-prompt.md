@@ -53,7 +53,7 @@ are running — this single command is your lifeline:
 
    ssh -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=no \
      [-o "ProxyCommand=<PROXY_CMD> %h %p"] -i <PRIVATE_KEY> <USER>@<VPS_IP> \
-     "bun /home/ubuntu/muse-bridge/src/cli.ts consume --id <WORKER_ID>"
+     "bun /opt/muse-bridge/src/cli.ts consume --id <WORKER_ID>"
 
    HARDENED VARIANT (forced command): if your VPS admin installed your
    public key with a `command="…consume --id …"` pin (README §8), the

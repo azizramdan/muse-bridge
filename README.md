@@ -88,9 +88,10 @@ consumer in step 5 and re-run the curl — it now returns
 ### 3. Deploy the bridge on the VPS
 
 ```bash
-# copy this repo to the VPS, then:
-git clone git@github.com:azizramdan/muse-bridge.git
-cd muse-bridge && bun install
+# /opt = root-owned, world-readable: worker users can run the code with
+# no traverse permission needed into anyone's home directory
+sudo git clone https://github.com/azizramdan/muse-bridge.git /opt/muse-bridge
+cd /opt/muse-bridge
 
 # generates the systemd unit for THIS machine (user, paths, bun path)
 # and starts it — nothing is hardcoded
@@ -178,7 +179,7 @@ prompt — it is written to be pasted verbatim):
 > to hold one long-lived session and answer every request that arrives on it.
 >
 > 1. Open the session and keep it open:
->    `ssh -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=no [-o "ProxyCommand=<PROXY_CMD> %h %p"] -i <PRIVATE_KEY> <USER>@<VPS_IP> "bun /home/ubuntu/muse-bridge/src/cli.ts consume --id muse-<N>"`
+>    `ssh -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=no [-o "ProxyCommand=<PROXY_CMD> %h %p"] -i <PRIVATE_KEY> <USER>@<VPS_IP> "bun /opt/muse-bridge/src/cli.ts consume --id muse-<N>"`
 >    (replace `<N>` with this server's unique number: muse-1, muse-2, …)
 >
 > 2. The session speaks line-delimited JSON on stdin/stdout. Your stdout
@@ -260,18 +261,20 @@ each Muse key can only ever be this one consumer with this one id:
 # 1. one shared bun for all worker users (they only RUN consume)
 sudo install -m 755 "$(which bun)" /usr/local/bin/bun
 
-# 2. code world-READABLE, data never (worker users never touch the DB)
-chmod 700 ~/muse-bridge-data 2>/dev/null || chmod 700 data   # DB dir: owner-only
-sudo chmod -R a+rX src scripts package.json
-chmod o+x ~                     # only if `namei -l src/cli.ts` shows your home lacks o+x
+# 2. (only if the code lives INSIDE a home dir — not needed for /opt)
+#    allow traversal without listing; data/ stays owner-only regardless:
+chmod o+x ~                     # if `namei -l src/cli.ts` shows no o+x
+chmod 700 /opt/muse-bridge/data # installer already does this at install time
 
 # 3. per worker: account + its Muse public key with a pinned consume command
+#    (ALWAYS absolute paths below — `~` would expand to YOUR home before sudo)
 sudo useradd -m -s /bin/bash muse1
-sudo -u muse1 mkdir -p ~/.ssh && sudo -u muse1 chmod 700 ~/.ssh
-sudo -u muse1 tee -a ~/.ssh/authorized_keys <<'EOF'
-command="/usr/local/bin/bun /ABSOLUTE/PATH/TO/muse-bridge/src/cli.ts consume --id muse-1",restrict ssh-ed25519 AAAA... <Muse worker 1 pubkey>
+sudo -u muse1 mkdir -p /home/muse1/.ssh
+sudo -u muse1 chmod 700 /home/muse1/.ssh
+sudo -u muse1 tee -a /home/muse1/.ssh/authorized_keys <<'EOF'
+command="/usr/local/bin/bun /opt/muse-bridge/src/cli.ts consume --id muse-1",restrict ssh-ed25519 AAAA... <Muse worker 1 pubkey>
 EOF
-sudo -u muse1 chmod 600 ~/.ssh/authorized_keys
+sudo -u muse1 chmod 600 /home/muse1/.ssh/authorized_keys
 ```
 
 - One account = one id (`muse1` → `muse-1`), so duplicate-id ping-ponging
