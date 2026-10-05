@@ -44,6 +44,20 @@ if [[ ! -f "$TEMPLATE" ]]; then
   exit 1
 fi
 
+# Ports: override at install time if the defaults are already taken
+#   sudo PORT=18765 ./scripts/install-service.sh
+# Keep HUB_PORT at its default unless you also bake it into every worker's
+# forced command — worker users run `consume` with no env, so they always
+# get the built-in default.
+PUBLIC_PORT="${PORT:-8765}"
+HUB_PORT="${HUB_PORT:-8767}"
+for v in "$PUBLIC_PORT" "$HUB_PORT"; do
+  if ! [[ "$v" =~ ^[0-9]+$ ]]; then
+    echo "error: PORT/HUB_PORT must be numeric (got '$v')" >&2
+    exit 1
+  fi
+done
+
 # Paths/usernames may contain sed metacharacters (&, \, |) — escape them.
 esc() { printf '%s' "$1" | sed -e 's/[\\&|]/\\&/g'; }
 
@@ -51,6 +65,8 @@ sed \
   -e "s|^User=.*|User=$(esc "$SERVICE_USER")|" \
   -e "s|/home/ubuntu/muse-bridge|$(esc "$REPO_DIR")|g" \
   -e "s|^ExecStart=.*|ExecStart=$(esc "$BUN_BIN") src/cli.ts serve|" \
+  -e "s|^Environment=PORT=.*|Environment=PORT=$(esc "$PUBLIC_PORT")|" \
+  -e "s|^Environment=HUB_PORT=.*|Environment=HUB_PORT=$(esc "$HUB_PORT")|" \
   "$TEMPLATE" > "$UNIT"
 chmod 644 "$UNIT"
 
@@ -70,7 +86,8 @@ echo "installed $UNIT"
 echo "  User=$SERVICE_USER"
 echo "  ExecStart=$BUN_BIN src/cli.ts serve"
 echo "  WorkingDirectory/DB under $REPO_DIR"
+echo "  API port=$PUBLIC_PORT  hub port=$HUB_PORT"
 echo
 echo "verify:"
 echo "  systemctl status muse-bridge"
-echo "  curl -s http://127.0.0.1:8765/health"
+echo "  curl -s http://127.0.0.1:$PUBLIC_PORT/health"

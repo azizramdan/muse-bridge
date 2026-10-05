@@ -123,6 +123,19 @@ curl -s http://127.0.0.1:8765/health      # {"ok":true,"consumers":0,"depth":0}
 curl -s http://127.0.0.1:8765/v1/models   # list contains {"id":"muse",...}
 ```
 
+> **Port 8765 already taken** (another gateway, etc. — see `EADDRINUSE` /
+> `Is port 8765 in use?` in `journalctl -u muse-bridge`, or `ss -ltnp | grep 8765`)?
+> Reinstall on a custom port and use it everywhere (9Router Base URL, curls):
+>
+> ```bash
+> sudo PORT=18765 ./scripts/install-service.sh
+> curl -s http://127.0.0.1:18765/health
+> ```
+>
+> Keep `HUB_PORT` at the default 8767 (only `ss -ltnp | grep 8767` should be
+> empty): worker `consume` processes run without env and use the built-in
+> default, so changing it would require baking it into every forced command.
+
 Then, in the 9Router dashboard:
 
 1. **Add provider** → type **OpenAI-compatible chat**.
