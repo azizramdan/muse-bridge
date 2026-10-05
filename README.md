@@ -189,6 +189,33 @@ curl -s https://<HOST_9ROUTER>/v1/chat/completions \
 Expected: a valid `chat.completion` JSON answered by Muse. With the tunnel
 live, latency ≈ Muse's generation time (no 10s poll cycle).
 
+### 7. Adding another Muse worker (scale-out)
+
+Nothing changes on the VPS — no restart, no config, no 9Router edit. To add
+a worker:
+
+1. Take the paste-ready prompt in
+   [`docs/muse-bootstrap-prompt.md`](docs/muse-bootstrap-prompt.md),
+   fill in `<WORKER_ID>` (e.g. `muse-2`), `<PRIVATE_KEY>`, `<USER>`,
+   `<VPS_IP>` (+ `<PROXY_CMD>` if used).
+2. Paste it into the new Muse run. It verifies SSH itself, attaches the
+   tunnel, answers per the protocol, and self-checks `/health`.
+3. Confirm:
+
+   ```bash
+   curl -s http://127.0.0.1:8765/health
+   # -> {"ok":true,"consumers":2,"depth":0}
+   ```
+
+Requests are then dispatched round-robin across all attached workers.
+
+> ⚠️ **Each worker needs a unique `--id`.** Reusing an id makes the bridge
+> treat the new session as a reconnect and detach the old one — two workers
+> on the same id will kick each other off in a loop.
+
+Removing a worker = end its session; its in-flight request re-queues to
+another worker automatically.
+
 ---
 
 ## Configuration (environment variables)
