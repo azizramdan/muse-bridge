@@ -18,11 +18,20 @@ fi
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SERVICE_USER="${SUDO_USER:-$(id -un)}"
 
-# Resolve bun as the service user, not root: root's login shell usually
-# doesn't have ~/.bun/bin on PATH even when the user's does.
-BUN_BIN="$(sudo -u "$SERVICE_USER" bash -lc 'command -v bun' 2>/dev/null || true)"
-if [[ -z "$BUN_BIN" ]]; then
-  echo "error: bun not found for user '$SERVICE_USER'. Install it first:" >&2
+# Resolve bun as the service user, not root. Order matters:
+#   1. login shell WITH -H (so HOME is the user's, not /root's)
+#   2. known install locations — bun's installer often exports PATH only in
+#      ~/.bashrc/~/.zshrc, which a non-interactive shell never reads
+SERVICE_HOME="$(getent passwd "$SERVICE_USER" | cut -d: -f6)"
+BUN_BIN="$(sudo -u "$SERVICE_USER" -H bash -lc 'command -v bun' 2>/dev/null || true)"
+if [[ ! -x "${BUN_BIN:-}" ]]; then
+  for c in "$SERVICE_HOME/.bun/bin/bun" /usr/local/bin/bun /usr/bin/bun; do
+    if [[ -x "$c" ]]; then BUN_BIN="$c"; break; fi
+  done
+fi
+if [[ ! -x "${BUN_BIN:-}" ]]; then
+  echo "error: bun not found for user '$SERVICE_USER' (not on PATH, not in" >&2
+  echo "  $SERVICE_HOME/.bun/bin, /usr/local/bin, or /usr/bin). Install it:" >&2
   echo "  curl -fsSL https://bun.sh/install | bash" >&2
   exit 1
 fi
