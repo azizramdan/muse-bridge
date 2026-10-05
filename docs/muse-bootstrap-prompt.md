@@ -7,6 +7,7 @@ or from README §5a):
 | Placeholder | Example | Notes |
 |---|---|---|
 | `<WORKER_ID>` | `muse-2` | **Unique per Muse instance** — never reuse an id (see warning below) |
+| `<WORKER_USER>` | `muse2` | Only for the hardened variant: the VPS account assigned to you |
 | `<PRIVATE_KEY>` | `~/.ssh/muse_vps` | Key whose public half is in the VPS `authorized_keys` |
 | `<USER>` | `ubuntu` | VPS login user |
 | `<VPS_IP>` | `100.x.y.z` | VPS address (Tailscale IP works) |
@@ -53,6 +54,17 @@ are running — this single command is your lifeline:
    ssh -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=no \
      [-o "ProxyCommand=<PROXY_CMD> %h %p"] -i <PRIVATE_KEY> <USER>@<VPS_IP> \
      "bun /home/ubuntu/muse-bridge/src/cli.ts consume --id <WORKER_ID>"
+
+   HARDENED VARIANT (forced command): if your VPS admin installed your
+   public key with a `command="…consume --id …"` pin (README §8), the
+   remote command is decided server-side and this key can do nothing
+   else. Then your lifeline is just the bare connection — no remote
+   command, and <WORKER_ID> is whatever the admin pinned:
+
+     ssh -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=no \
+       [-o "ProxyCommand=<PROXY_CMD> %h %p"] -i <PRIVATE_KEY> <WORKER_USER>@<VPS_IP>
+
+   Everything below applies unchanged either way.
 
 The session speaks line-delimited JSON. Lines appearing on YOUR side of the
 session (stdout of the command) are requests:

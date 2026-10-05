@@ -21,6 +21,9 @@ Environment=HUB_PORT=8767
 ExecStart=/usr/local/bin/bun src/cli.ts serve
 Restart=always
 RestartSec=2
+# queue + SQLite files stay 600/700 (owner-only), even though the code
+# around them may be world-readable for worker users
+UMask=0077
 
 # hardening
 NoNewPrivileges=true

@@ -45,9 +45,11 @@ sed \
   "$TEMPLATE" > "$UNIT"
 chmod 644 "$UNIT"
 
-# The SQLite dir must exist before systemd applies ReadWritePaths=.
+# The SQLite dir must exist before systemd applies ReadWritePaths=,
+# and it holds prompts/answers — owner-only, never group/other readable.
 mkdir -p "$REPO_DIR/data"
 chown "$SERVICE_USER:$SERVICE_USER" "$REPO_DIR/data"
+chmod 700 "$REPO_DIR/data"
 
 systemctl daemon-reload
 systemctl enable muse-bridge >/dev/null

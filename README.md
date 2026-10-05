@@ -238,6 +238,39 @@ Requests are then dispatched round-robin across all attached workers.
 Removing a worker = end its session; its in-flight request re-queues to
 another worker automatically.
 
+### 8. One SSH user per Muse worker (isolated layout)
+
+Run each worker as its **own local account** with a **forced command**, so
+each Muse key can only ever be this one consumer with this one id:
+
+```bash
+# 1. one shared bun for all worker users (they only RUN consume)
+sudo install -m 755 "$(which bun)" /usr/local/bin/bun
+
+# 2. code world-READABLE, data never (worker users never touch the DB)
+chmod 700 ~/muse-bridge-data 2>/dev/null || chmod 700 data   # DB dir: owner-only
+sudo chmod -R a+rX src scripts package.json
+chmod o+x ~                     # only if `namei -l src/cli.ts` shows your home lacks o+x
+
+# 3. per worker: account + its Muse public key with a pinned consume command
+sudo useradd -m -s /bin/bash muse1
+sudo -u muse1 mkdir -p ~/.ssh && sudo -u muse1 chmod 700 ~/.ssh
+sudo -u muse1 tee -a ~/.ssh/authorized_keys <<'EOF'
+command="/usr/local/bin/bun /ABSOLUTE/PATH/TO/muse-bridge/src/cli.ts consume --id muse-1",restrict ssh-ed25519 AAAA... <Muse worker 1 pubkey>
+EOF
+sudo -u muse1 chmod 600 ~/.ssh/authorized_keys
+```
+
+- One account = one id (`muse1` → `muse-1`), so duplicate-id ping-ponging
+  is structurally impossible.
+- With `command=`, the remote command is ignored: the Muse instruction
+  simplifies to plain `ssh -i <KEY> muse1@<VPS_IP>` (see the hardened
+  variant in [`docs/muse-bootstrap-prompt.md`](docs/muse-bootstrap-prompt.md)).
+- `serve` still runs once as your own user via systemd — nothing else needs
+  sudo, and worker users never need sudo.
+- ⚠️ The hub (`127.0.0.1:8767`) is unauthenticated: any **local** user could
+  attach as a consumer. Only create accounts you trust.
+
 ---
 
 ## Configuration (environment variables)
