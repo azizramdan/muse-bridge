@@ -114,12 +114,33 @@ curl -s http://127.0.0.1:8765/v1/models
 
 ### 4. Register the provider in 9Router
 
-1. Add provider → type **OpenAI-compatible chat**.
-2. Name `Muse`, Base URL `http://127.0.0.1:8765/v1`, prefix `muse`.
-3. Click **Test Connection** — the bridge answers dashboard probes
-   instantly (before any queueing), so this must go green immediately.
-4. Create a combo named `muse` containing model `muse/muse`.
-5. Create an API key for your own use.
+Preflight on the VPS (all must succeed):
+
+```bash
+systemctl status muse-bridge             # active (running)
+curl -s http://127.0.0.1:8765/health      # {"ok":true,"consumers":0,"depth":0}
+curl -s http://127.0.0.1:8765/v1/models   # list contains {"id":"muse",...}
+```
+
+Then, in the 9Router dashboard:
+
+1. **Add provider** → type **OpenAI-compatible chat**.
+   - Name `Muse`, Base URL `http://127.0.0.1:8765/v1` (same VPS → loopback,
+     include `/v1`), API key left empty (the bridge never checks auth),
+     prefix `muse` (exposes the bridge's `muse` model as `muse/muse`).
+2. **Test Connection** — must go green **instantly**: the bridge answers
+   dashboard probes before any queueing, even with zero workers attached.
+   Green here does *not* prove a worker is attached.
+3. Create a **combo** named `muse` containing model `muse/muse`.
+4. Create an **API key** for your own use.
+5. Set 9Router's upstream/request timeout to **≥ 250 s** — the bridge's own
+   deadline is 240 s (`DEADLINE_MS`), so a shorter proxy timeout would cut
+   clients off before the bridge can return `504`. SSE keepalives (15 s)
+   already cover idle-read timeouts.
+
+> If 9Router runs on a *different* host, the bridge's default
+> `HOST=127.0.0.1` is unreachable — set `HOST` to the Tailscale IP (or
+> `0.0.0.0`) and restart before registering.
 
 ### 5. Connect the Muse side (the tunnel)
 
