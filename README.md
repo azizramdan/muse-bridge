@@ -168,6 +168,22 @@ Then, in the 9Router dashboard:
 > `HOST=127.0.0.1` is unreachable — set `HOST` to the Tailscale IP (or
 > `0.0.0.0`) and restart before registering.
 
+9Router gotchas (verified end-to-end):
+
+- **`No active credentials for provider: <name>`** — the *provider entry*
+  has no credential row (this is not your client `sk-…` key). Edit the
+  provider → set its API key to **any non-empty string** (the bridge
+  ignores auth) → Test Connection. A `"no credentials"` failure also puts
+  the provider on a ~2 min cooldown, so wait before re-testing.
+- **Provider name/prefix must be unique.** A name collision shows up as the
+  same credential error resolving the *other* entry — if `muse` is taken,
+  register as `museai` (model id then `museai/muse`) or free the name.
+- **`URL not allowed`** — 9Router's SSRF guard rejects some base URLs.
+  The base URL must be reachable from the 9Router host and pass its
+  validation; a 9Router that proxies successfully will return the
+  bridge's own errors (e.g. `503 no Muse consumer`), which confirms the
+  path client → 9Router → bridge works even when no worker is attached.
+
 ### 5. Connect the Muse side (the tunnel)
 
 **5a. Verify outbound SSH from the Muse sandbox to the VPS** (once):
@@ -211,7 +227,8 @@ prompt — it is written to be pasted verbatim):
 >       `{"type":"answer","id":"<id>","content":"<your answer>"}`
 >
 > 4. Heartbeats are sent by the session automatically — never send them
->    yourself.
+>    yourself. After each answer, immediately read the next line — you
+>    are a long-running daemon, never finish your turn after one answer.
 >
 > 5. If the session ends (SSH drop, VPS restart), **reconnect immediately**
 >    (step 1) and continue. Reconnect loops are expected and harmless.
@@ -348,7 +365,9 @@ consume → serve : {"type":"heartbeat"}               (automatic)
 
 | Symptom | Likely cause | Check |
 |---|---|---|
-| `503 no Muse consumer` | Tunnel not connected | `curl :8765/health`; Muse session logs |
+| `503 no Muse consumer` | Tunnel not connected | `curl :PORT/health`; Muse session logs |
+| Service crash-loops: `unable to open database file` | Service user ≠ owner of `data/` (e.g. unit says `User=X`, dir owned by `Y`) | `sudo ls -lad <repo>/data` — reinstall with `sudo ./scripts/install-service.sh` (it `chown`s `data/` to the service user) or `chown -R <user> <repo>/data` |
+| Requests hang then `504` / rows reach `attempts=3, status='expired'` | Worker attached (heartbeats flow) but its agent **stopped reading stdin** after finishing a turn — delivery works, nothing answers | Inspect the queue (no `sqlite3` needed):<br>`sudo bun -e 'import{Database}from"bun:sqlite";const db=new Database("<repo>/data/bridge.db",{readonly:true});console.table(db.query("SELECT substr(id,1,8) id,status,attempts,consumer_id FROM requests ORDER BY received_at DESC LIMIT 5").all())'`<br>→ tell the worker: after each answer line, immediately read the next line; never return control (see the daemon rule in `docs/muse-bootstrap-prompt.md`) |
 | `504 Muse did not answer in time` | Muse run died / deadline hit | Reconnect instruction (5b.5); `DEADLINE_MS` |
 | `429 bridge busy` | Consumers slower than arrival rate | Add Muse servers; raise `MAX_DEPTH` |
 | `Test Connection` green but real calls 503 | Probe shortcut hides a dead tunnel | `/health` `consumers` field |

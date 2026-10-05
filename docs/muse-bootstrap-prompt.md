@@ -94,6 +94,11 @@ c. Write exactly ONE line to the session's stdin:
 
 ### Rules
 
+- You are a LONG-RUNNING DAEMON, not a one-shot task: after writing each
+  answer line, IMMEDIATELY read the next line from the session. Never
+  return control, never stop reading, never exit after answering —
+  repeat forever. (An agent that finishes its "turn" after one answer
+  leaves every later request unanswered until they all time out.)
 - Never send heartbeat lines — the session sends them automatically.
 - Answer requests one at a time, in order; each id gets at most one answer.
 - If the session ends (SSH drop, VPS restart), reconnect IMMEDIATELY with
